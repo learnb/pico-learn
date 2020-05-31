@@ -6,14 +6,29 @@ __lua__
 function _init()
     --
     --net = init_graph()
-    net = fcnn:new({3,5,5,3})
-    rectfill(0,0,127,127,0)
-    draw_nn(net)
+    
+    --net = fcnn:new({3,5,5,3})
+    --draw_nn(net)
+    num_inputs=2
+    num_outputs=6
+
+    net=nn:new()
+    net:add_layer(layer:new(num_inputs,3,"tanh"))
+    net:add_layer(layer:new(3,3,"sigmoid"))
+    net:add_layer(layer:new(3,num_outputs,"sigmoid"))
+
+    output={}
 end
 function _update()
-    --
+    output=net:feedforward(np_rand_vec(num_inputs))
 end
 function _draw()
+    rectfill(0,0,127,127,0)
+    net:draw()
+    print("output: ", 16,64, 6)
+    for i=1,#output do
+        print(tostr(output[i]), 32,72+(i*8), 6)
+    end
     --
     --draw_nn(net)
     --draw_graph(net)
@@ -89,6 +104,7 @@ function draw_graph(root)
         circ(root.x,root.y,3, 7)
     end
 end
+
 -->8
 -- reinforcement learning lib
 nn={}
@@ -100,6 +116,60 @@ function nn:new()
     self.__index=self
     setmetatable(this,self)
     return this
+end
+function nn:add_layer(layer)
+    add(self.layers, layer)
+end
+-- feed forward input through layers
+-- x: n-d array
+-- return: n-d array
+function nn:feedforward(x)
+    for layer in all(self.layers) do
+        x=layer:activate(x)
+    end
+    return x
+end
+-- predicts a class
+-- useful with sigmoid activation (interpret outputs as probabilities)
+-- returns index of predicted classed
+function nn:predict(x)
+    local ff=self.feedforward(x)
+    return np_argmax(ff)
+end
+-- draw nn structure
+function nn:draw()
+    local pad=18
+    for lindx,layer in ipairs(self.layers) do -- each layer
+        local w=layer.weights
+        local ins=#w
+        local outs=#w[1]
+        --color(7)
+        --print("layer: "..lindx.." in: "..ins.." out: "..outs)
+        -- draw weights
+        for r=1,ins do
+            local x=pad
+            local y=r*pad
+            for c=1,outs do
+                x=lindx*pad
+                local h=graph_lib.heat_pal[mid(1,flr(5*w[r][c]),5)]
+                local x1=x+pad
+                local y1=c*pad
+                line(x,y, x1,y1, h)
+            end
+        end
+        -- draw neurons
+        local x=0
+        local y=0
+        for r=1,ins do -- draw input neurons
+            circfill(lindx*pad,r*pad, 3, 6)
+        end
+        if lindx==#self.layers then
+            -- draw output neurons
+            for c=1,outs do -- draw input neurons
+                circfill((lindx+1)*pad,c*pad, 3, 8)
+            end
+        end
+    end
 end
 layer={}
 -- constructor for nn layer
@@ -121,12 +191,20 @@ function layer:new(n_input, n_neurons, activation, weights, bias)
     return this
 end
 -- calculates dot product of this layer
--- x is n-d array (inputs)
+-- x is 1-d array (inputs)
+-- returns vector: XW+B
 function layer:activate(x)
-    local res=np_dot_vm(x, self.weights) -- dot product
+    local res=np_dot_vm(x, self.weights) -- X dot W
     res=np_add_vec(res, self.bias) -- add bias
-    res=np_tanh(res) -- apply activiation fn
+    self:apply_activation(res) -- apply activiation fn
     return res
+end
+function layer:apply_activation(vec)
+    if self.activation=="tanh" then
+        np_vec_func(vec, np_tanh)
+    else -- assume "sigmoid"
+        np_vec_func(vec, np_sigmoid)
+    end
 end
 fcnn={}
 -- constructor for fully-connected neural network
@@ -185,7 +263,7 @@ function np_rand_mat(_n,_m)
     for i=1,_n do -- each row
         a[i]={}
         for j=1,_m do -- each col
-            a[i][j]=rand()
+            a[i][j]=rnd()
         end
     end
     return a
@@ -194,7 +272,7 @@ end
 function np_rand_vec(_n)
     local a={}
     for i=1,_n do
-        a[i]=rand()
+        a[i]=rnd()
     end
     return a
 end
@@ -222,7 +300,7 @@ function np_dot(_a,_b)
     end
     return c
 end
--- dot product of n-d vector and n-by-p matrix
+-- dot product of 1-d vector and n-by-p matrix
 -- a is array of legnth n (1-by-n transposed)
 -- b is n-by-p matrix
 -- returns array of length p (1-by-p transposed)
@@ -240,8 +318,8 @@ function np_dot_vm(_a,_b)
     return c
 end
 -- component-wise vector addition
--- a is n-d array
--- b is n-d array
+-- a is 1-d array of length n
+-- b is 1-d array of length n
 -- returns n-d array
 function np_add_vec(_a,_b)
     local c={}
@@ -265,6 +343,28 @@ function np_add(_a,_b)
         end
     end
     return c
+end
+-- applies function to each vector component
+function np_vec_func(_v,_func)
+    for i=1,#_v do
+        _v[i]=_func(_v[i])
+    end
+end
+-- returns index of max value in array
+function np_argmax(vec)
+    local max=-1
+    local indx=0
+    for i=1,#vec do
+        if vec[i]>max then
+            max=vec[i]
+            indx=i
+        end
+    end
+    return indx
+end
+-- sigmoid
+function np_sigmoid(x)
+    return 1 / (1+np_exp(-x))
 end
 -- hiberbolic tangent
 function np_tanh(x)
