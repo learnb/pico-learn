@@ -11,7 +11,7 @@ function _init()
     
     --net = fcnn:new({3,5,5,3})
     --draw_nn(net)
-    num_inputs=2
+    num_inputs=4
     num_outputs=6
 
     net=nn:new()
@@ -53,6 +53,7 @@ function _update()
     if ((net.epoch>prev_epoch) and (net.epoch<epochs)) then -- ready for next epoch
         prev_epoch=net.epoch
         net:train_step(x[prev_sample],y[prev_sample],learing_rate)
+        net:mse(y[1],x[1])
         if (prev_sample<num_samples) then
             prev_sample+=1
         else
@@ -153,6 +154,7 @@ function nn:new()
     local this={}
     this.layers={}
     this.epoch=0
+    this.error=0.0
 
     self.__index=self
     setmetatable(this,self)
@@ -211,6 +213,14 @@ function nn:backprop(x,y,lr)
         self.layers[l]:update(_in,self.layers[l].delta,lr)
     end
 end
+-- mean square error
+-- y: input vector, 1-d array
+-- returns: mse, scalar
+function nn:mse(y,x)
+    local e=np_mean_vec(np_square_vec(np_sub_vec(y, self:feedforward(x))))
+    self.error=e
+    return e
+end
 -- train using sgd
 -- x: input values, 2-d array. x[1] is the first sample vector
 -- y: target values, 2-d array. y[1] is the first target vector
@@ -221,22 +231,21 @@ function nn:train(x,y,lr,max_epochs)
     local results={}
     for i=1,max_epochs do -- each epoch
         self.epoch=i
-        for j=1,#x do -- each input
-            self:backprop(x[j], y[j], lr)
+        for s=1,#x do -- each sample
+            self:backprop(x[s], y[s], lr)
         end
         -- check progress
-        --if i%10==0 then
-        --    local mse=np_mse()
-        --end
+        if i%10==0 then
+            add(results, nn:mse(y[1],x[1]))
+        end
     end
     return results
 end
--- train using sgd
+-- train on one sample using sgd
 -- x: input values, 1-d array. x is a sample vector
 -- y: target values, 1-d array. y is a target vector
 -- lr: learning rate (0,1)
 -- max_epochs: maximum number of training iterations
--- returns: array of mse errors
 function nn:train_step(x,y,lr)
     self.epoch+=1
     self:backprop(x, y, lr)
@@ -275,6 +284,7 @@ function nn:draw()
         end
     end
     print("epoch: "..self.epoch, 3,3, 8)
+    print("error: "..self.error, 3,116, 8)
 end
 layer={}
 -- constructor for nn layer
@@ -459,6 +469,21 @@ function np_add(_a,_b)
         end
     end
     return c
+end
+-- component-wise x^2
+function np_square_vec(_v)
+    for comp in all(_v) do
+        comp = comp*comp
+    end
+    return _v
+end
+-- returns: arithmetic mean of vector
+function np_mean_vec(_v)
+    local sum=0
+    for i=1,#_v do
+        sum+=_v[i]
+    end
+    return sum/#_v
 end
 -- applies function to each vector component
 function np_vec_func(_v,_func)
