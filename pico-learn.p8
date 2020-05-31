@@ -4,6 +4,8 @@ __lua__
 -- pico learn
 -- by blearn
 function _init()
+
+    rectfill(0,0,127,127,0)
     --
     --net = init_graph()
     
@@ -138,13 +140,12 @@ function nn:predict(x)
 end
 -- draw nn structure
 function nn:draw()
-    local pad=18
+    local radius=2
+    local pad=16
     for lindx,layer in ipairs(self.layers) do -- each layer
         local w=layer.weights
         local ins=#w
         local outs=#w[1]
-        --color(7)
-        --print("layer: "..lindx.." in: "..ins.." out: "..outs)
         -- draw weights
         for r=1,ins do
             local x=pad
@@ -158,15 +159,15 @@ function nn:draw()
             end
         end
         -- draw neurons
-        local x=0
-        local y=0
         for r=1,ins do -- draw input neurons
-            circfill(lindx*pad,r*pad, 3, 6)
+            circfill(lindx*pad,r*pad, radius, graph_lib.heat_pal[1])
+            circ(lindx*pad,r*pad, radius, graph_lib.heat_pal[5])
         end
         if lindx==#self.layers then
             -- draw output neurons
             for c=1,outs do -- draw input neurons
-                circfill((lindx+1)*pad,c*pad, 3, 8)
+                circfill((lindx+1)*pad,c*pad, radius, graph_lib.heat_pal[3])
+                circ((lindx+1)*pad,c*pad, radius, graph_lib.heat_pal[5])
             end
         end
     end
@@ -309,10 +310,10 @@ function np_dot_vm(_a,_b)
     local p=#_b[1]
     local c={}
     -- compute result matrix
-    for i=1,n do -- each row (b)
+    for i=1,p do -- each col (b)
         c[i]=0
-        for j=1,p do -- each col (b)
-            c[i]+=_a[i]*_b[i][j]
+        for j=1,n do -- each row (b)
+            c[i]+=_a[j]*_b[j][i]
         end
     end
     return c
