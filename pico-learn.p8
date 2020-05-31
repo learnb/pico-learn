@@ -4,7 +4,7 @@ __lua__
 -- pico learn
 -- by blearn
 function _init()
-
+    draw=true
     rectfill(0,0,127,127,0)
     --
     --net = init_graph()
@@ -20,16 +20,54 @@ function _init()
     net:add_layer(layer:new(3,num_outputs,"sigmoid"))
 
     output={}
+    output=net:feedforward(np_rand_vec(num_inputs))
+
+    -- configure training
+    learing_rate=0.3
+    epochs = 1000
+    num_samples = 100
+
+    -- generate test data
+    x = {}
+    y = {}
+    for s=1,num_samples do -- each input sample
+        x[s]={}
+        for i=1,num_inputs do -- each input
+            x[s][i]=rnd()
+        end
+        y[s]={}
+        for l=1,num_outputs do -- each label
+            y[s][l]=rnd()
+        end
+    end
+
+    prev_sample=1
+    prev_epoch=-1
+    -- train
+    --net:train(x,y,learing_rate,epochs)
 end
 function _update()
-    output=net:feedforward(np_rand_vec(num_inputs))
+    --output=net:feedforward(np_rand_vec(num_inputs))
+
+    -- train
+    if ((net.epoch>prev_epoch) and (net.epoch<epochs)) then -- ready for next epoch
+        prev_epoch=net.epoch
+        net:train_step(x[prev_sample],y[prev_sample],learing_rate)
+        if (prev_sample<num_samples) then
+            prev_sample+=1
+        else
+            prev_sample=1
+        end
+    end
 end
 function _draw()
-    rectfill(0,0,127,127,0)
-    net:draw()
-    print("output: ", 16,64, 6)
-    for i=1,#output do
-        print(tostr(output[i]), 32,72+(i*8), 6)
+    if (draw) then
+        rectfill(0,0,127,127,0)
+        net:draw()
+        --print("output: ", 16,64, 6)
+        --for i=1,#output do
+        --    print(tostr(output[i]), 32,72+(i*8), 6)
+        --end
     end
     --
     --draw_nn(net)
@@ -114,6 +152,7 @@ nn={}
 function nn:new()
     local this={}
     this.layers={}
+    this.epoch=0
 
     self.__index=self
     setmetatable(this,self)
@@ -135,8 +174,72 @@ end
 -- useful with sigmoid activation (interpret outputs as probabilities)
 -- returns index of predicted classed
 function nn:predict(x)
-    local ff=self.feedforward(x)
+    local ff=self:feedforward(x)
     return np_argmax(ff)
+end
+-- backpropagation
+-- uses mean squared sum loss function
+-- x: input values (array)
+-- y: target values (array)
+-- lr: learning rate (0, 1)
+function nn:backprop(x,y,lr)
+    -- feedforward
+    local output=self:feedforward(x)
+
+    -- calculate errors and deltas
+    for l=#self.layers,1,-1 do -- loop over layers backwards
+        local layer=self.layers[l]
+        if l==#self.layers then -- if this is output layer
+            layer.error=np_sub_vec(y,output)
+            layer.delta=np_mult_vec(layer.error,layer:apply_activation_derivative(output))
+        else
+            local next_layer=self.layers[l+1]
+            layer.error=np_dot_mv(next_layer.weights, next_layer.delta)
+            layer.delta=np_mult_vec(layer.error,layer:apply_activation_derivative(layer.last_activation))
+        end
+    end
+
+    -- update weights
+    for l=1,#self.layers do -- loop over layers
+        local _in={}
+        if (l!=1) then -- input is previous layer
+            _in=self.layers[l-1].last_activation
+        else -- input is x
+            _in=x
+        end
+        -- apply update: w += delta*x*lr
+        self.layers[l]:update(_in,self.layers[l].delta,lr)
+    end
+end
+-- train using sgd
+-- x: input values, 2-d array. x[1] is the first sample vector
+-- y: target values, 2-d array. y[1] is the first target vector
+-- lr: learning rate (0,1)
+-- max_epochs: maximum number of training iterations
+-- returns: array of mse errors
+function nn:train(x,y,lr,max_epochs)
+    local results={}
+    for i=1,max_epochs do -- each epoch
+        self.epoch=i
+        for j=1,#x do -- each input
+            self:backprop(x[j], y[j], lr)
+        end
+        -- check progress
+        --if i%10==0 then
+        --    local mse=np_mse()
+        --end
+    end
+    return results
+end
+-- train using sgd
+-- x: input values, 1-d array. x is a sample vector
+-- y: target values, 1-d array. y is a target vector
+-- lr: learning rate (0,1)
+-- max_epochs: maximum number of training iterations
+-- returns: array of mse errors
+function nn:train_step(x,y,lr)
+    self.epoch+=1
+    self:backprop(x, y, lr)
 end
 -- draw nn structure
 function nn:draw()
@@ -159,18 +262,19 @@ function nn:draw()
             end
         end
         -- draw neurons
+        -- if lindx==1 then -- first layer
         for r=1,ins do -- draw input neurons
             circfill(lindx*pad,r*pad, radius, graph_lib.heat_pal[1])
             circ(lindx*pad,r*pad, radius, graph_lib.heat_pal[5])
         end
-        if lindx==#self.layers then
-            -- draw output neurons
-            for c=1,outs do -- draw input neurons
-                circfill((lindx+1)*pad,c*pad, radius, graph_lib.heat_pal[3])
-                circ((lindx+1)*pad,c*pad, radius, graph_lib.heat_pal[5])
-            end
+        -- draw output neurons
+        for c=1,outs do -- draw input neurons
+            local h=graph_lib.heat_pal[mid(1,self.layers[lindx].last_activation[c],5)]
+            circfill((lindx+1)*pad,c*pad, radius, h)
+            circ((lindx+1)*pad,c*pad, radius, graph_lib.heat_pal[5])
         end
     end
+    print("epoch: "..self.epoch, 3,3, 8)
 end
 layer={}
 -- constructor for nn layer
@@ -195,67 +299,38 @@ end
 -- x is 1-d array (inputs)
 -- returns vector: XW+B
 function layer:activate(x)
+    --print("x: "..#x)
     local res=np_dot_vm(x, self.weights) -- X dot W
+    --print("xw: "..#res)
     res=np_add_vec(res, self.bias) -- add bias
-    self:apply_activation(res) -- apply activiation fn
-    return res
+    --print("xw+b: "..#res)
+    self.last_activation=self:apply_activation(res) -- apply activiation fn
+    --print("fn(xw+b): "..#self.last_activation)
+    return self.last_activation
 end
 function layer:apply_activation(vec)
     if self.activation=="tanh" then
-        np_vec_func(vec, np_tanh)
+        vec=np_vec_func(vec, np_tanh)
     else -- assume "sigmoid"
-        np_vec_func(vec, np_sigmoid)
+        vec=np_vec_func(vec, np_sigmoid)
     end
+    return vec
 end
-fcnn={}
--- constructor for fully-connected neural network
--- input is array of ints. E.g. {3,5,3}
-function fcnn:new(_layers)
-    local this={}
-    this.layers={}
-    if (_layers != nil) then
-        -- create all neurons
-        for lindx=1,#_layers do -- each layer
-            this.layers[lindx] = {}
-            for nindx=1,_layers[lindx] do -- each neuron
-                local n=node:new(lindx*24,nindx*24)
-                add(this.layers[lindx], n)
-            end
-        end
-        -- connect neurons
-        for lindx,l in ipairs(this.layers) do -- each layer
-            -- if next layer exists, connect
-            if (lindx+1 <= #this.layers) then
-                for nindx,n in ipairs(l) do -- each current layer node
-                    for nl_indx,nl_n in ipairs(this.layers[lindx+1]) do -- each next layer node
-                        n:connect(nl_n)
-                    end
-                end
-            end
-        end
+function layer:apply_activation_derivative(vec)
+    if self.activation=="tanh" then
+        vec=np_vec_func(vec, np_deriv_tanh)
+    else -- assume "sigmoid"
+        vec=np_vec_func(vec, np_deriv_sigmoid)
     end
-
-
-    self.__index=self
-    setmetatable(this,self)
-    return this
+    return vec
 end
-function fcnn:feedforward()
-    for l in (self.layers) do -- each layer
-        for n in l do -- each neuron
-            for e in n.edges do -- each edge
-                --
-            end
+function layer:update(_input,_output,_lr)
+    for i=1,#_input do
+        for o=1,#_output do
+            self.weights[i][o]+=_output[o]*_input[i]*_lr
         end
     end
 end
-function draw_nn(_net)
-    --
-    for n in all(_net.layers[1]) do
-        draw_graph(n)
-    end
-end
-
 -->8
 -- num-pico lib
 -- returns a n-by-m array with random values (0,1)
@@ -318,6 +393,23 @@ function np_dot_vm(_a,_b)
     end
     return c
 end
+-- dot product of n-by-p matrix and 1-d vector
+-- a is n-by-p matrix
+-- b is array of legnth p (1-by-p transposed)
+-- returns array of length n (1-by-n transposed)
+function np_dot_mv(_a,_b)
+    local n=#_a
+    local p=#_a[1]
+    local c={}
+    -- compute result matrix
+    for i=1,n do -- each row (a)
+        c[i]=0
+        for j=1,p do -- each col (a)
+            c[i]+=_b[j]*_a[i][j]
+        end
+    end
+    return c
+end
 -- component-wise vector addition
 -- a is 1-d array of length n
 -- b is 1-d array of length n
@@ -329,8 +421,31 @@ function np_add_vec(_a,_b)
     end
     return c
 end
+-- component-wise vector subtraction
+-- a is 1-d array of length n
+-- b is 1-d array of length n
+-- returns n-d array
+function np_sub_vec(_a,_b)
+    local c={}
+    for i=1,#_a do
+        c[i]=_a[i]-_b[i]
+    end
+    return c
+end
+-- component-wise vector multiplication
+-- a is 1-d array of length n
+-- b is 1-d array of length n
+-- returns n-d array
+function np_mult_vec(_a,_b)
+    local c={}
+    for i=1,#_a do
+        c[i]=_a[i]*_b[i]
+    end
+    return c
+end
 -- matrix component-wise addtion
 -- a is m-by-n, b is n-by-p
+-- returns array of length m
 function np_add(_a,_b)
     local m=#_a
     local n=#_b
@@ -350,6 +465,7 @@ function np_vec_func(_v,_func)
     for i=1,#_v do
         _v[i]=_func(_v[i])
     end
+    return _v
 end
 -- returns index of max value in array
 function np_argmax(vec)
@@ -367,9 +483,17 @@ end
 function np_sigmoid(x)
     return 1 / (1+np_exp(-x))
 end
+-- derived sigmoid
+function np_deriv_sigmoid(x)
+    return x*(1-x)
+end
 -- hiberbolic tangent
 function np_tanh(x)
 	return np_sinh(x)/np_cosh(x)
+end
+-- derived sigmoid
+function np_deriv_tanh(x)
+    return 1-(x^2)
 end
 -- hiberbolic cosine
 function np_cosh(x)
