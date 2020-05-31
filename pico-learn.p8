@@ -11,38 +11,65 @@ function _init()
     
     --net = fcnn:new({3,5,5,3})
     --draw_nn(net)
-    num_inputs=4
-    num_outputs=6
+    
+    --num_inputs=4
+    --num_outputs=6
+    num_inputs=2
+    num_outputs=2
 
     net=nn:new()
     net:add_layer(layer:new(num_inputs,3,"tanh"))
     net:add_layer(layer:new(3,3,"sigmoid"))
     net:add_layer(layer:new(3,num_outputs,"sigmoid"))
 
+    --net:add_layer(layer:new(num_inputs,3,"tanh"))
+    --net:add_layer(layer:new(3,3,"sigmoid"))
+    --net:add_layer(layer:new(3,num_outputs,"sigmoid"))
+
     output={}
     output=net:feedforward(np_rand_vec(num_inputs))
 
     -- configure training
     learing_rate=0.3
-    epochs = 1000
+    epochs = 10000
     num_samples = 100
 
-    -- generate test data
-    x = {}
-    y = {}
-    for s=1,num_samples do -- each input sample
-        x[s]={}
-        for i=1,num_inputs do -- each input
-            x[s][i]=rnd()
-        end
-        y[s]={}
-        for l=1,num_outputs do -- each label
-            y[s][l]=rnd()
-        end
-    end
+    -- generate random test data
+    --x = {}
+    --y = {}
+    --for s=1,num_samples do -- each input sample
+    --    x[s]={}
+    --    for i=1,num_inputs do -- each input
+    --        x[s][i]=rnd()
+    --    end
+    --    y[s]={}
+    --    for l=1,num_outputs do -- each label
+    --        y[s][l]=rnd()
+    --    end
+    --end
+
+    -- define dataset for logical 'and'
+    --x={{0,0},{0,1},{1,0},{1,1}}
+    --y={{1,0},{1,0},{1,0},{0,1}}
+
+
+    -- define simple dataset
+    --x={{0,0},{0,1},{1,0},{1,1}}
+    --y={{0,0},{0,1},{1,0},{1,1}}
+
+
+    -- define simple dataset
+    x={{0,0},{0,1},{1,0},{1,1}}
+    y={{1,1},{1,0},{0,1},{0,0}}
+
+
+    num_samples=4
 
     prev_sample=1
     prev_epoch=-1
+
+    errors={}
+    done_training=false
     -- train
     --net:train(x,y,learing_rate,epochs)
 end
@@ -53,12 +80,16 @@ function _update()
     if ((net.epoch>prev_epoch) and (net.epoch<epochs)) then -- ready for next epoch
         prev_epoch=net.epoch
         net:train_step(x[prev_sample],y[prev_sample],learing_rate)
-        net:mse(y[1],x[1])
-        if (prev_sample<num_samples) then
+        add(errors, net:mse(y[1],x[1]))
+        if (prev_sample<num_samples) then -- continue batch
             prev_sample+=1
-        else
+        else -- batch complete
             prev_sample=1
+            net:accuracy(x, y)
         end
+    elseif (net.epoch>=epochs and not(done_training)) then -- training over
+        done_training=true
+        net:accuracy(x, y)
     end
 end
 function _draw()
@@ -155,6 +186,7 @@ function nn:new()
     this.layers={}
     this.epoch=0
     this.error=0.0
+    this.acc=0.0
 
     self.__index=self
     setmetatable(this,self)
@@ -212,6 +244,15 @@ function nn:backprop(x,y,lr)
         -- apply update: w += delta*x*lr
         self.layers[l]:update(_in,self.layers[l].delta,lr)
     end
+end
+-- accuracy between predicted and true labels
+function nn:accuracy(y_pred,y_true)
+    local mean=0
+    for i=1,#y_pred do -- each sample
+        if (nn:predict(y_pred[i])==np_argmax(y_true[i])) then mean+=1 end
+    end
+    self.acc=mean/#y_pred
+    return self.acc
 end
 -- mean square error
 -- y: input vector, 1-d array
@@ -283,8 +324,10 @@ function nn:draw()
             circ((lindx+1)*pad,c*pad, radius, graph_lib.heat_pal[5])
         end
     end
-    print("epoch: "..self.epoch, 3,3, 8)
-    print("error: "..self.error, 3,116, 8)
+    --print("epoch: "..self.epoch, 3,3, 8)
+    print("epoch: "..self.epoch, 15,110, 6)
+    print("error: "..self.error, 15,116, 13)
+    print("accuracy: "..(self.acc*100).."%", 3,122, 15)
 end
 layer={}
 -- constructor for nn layer
@@ -337,28 +380,30 @@ end
 function layer:update(_input,_output,_lr)
     for i=1,#_input do
         for o=1,#_output do
-            self.weights[i][o]+=_output[o]*_input[i]*_lr
+            local d = _output[o]*_input[i]*_lr
+            self.weights[i][o]=mid(-5, self.weights[i][o]+d, 5) -- clamp (-5, 5)
+            --self.weights[i][o]+=d
         end
     end
 end
 -->8
 -- num-pico lib
--- returns a n-by-m array with random values (0,1)
+-- returns a n-by-m array with random values (-1,1)
 function np_rand_mat(_n,_m)
     local a={}
     for i=1,_n do -- each row
         a[i]={}
         for j=1,_m do -- each col
-            a[i][j]=rnd()
+            a[i][j]=rnd(2)-1
         end
     end
     return a
 end
--- returns a n-dim array with random values (0,1)
+-- returns a n-dim array with random values (-1,1)
 function np_rand_vec(_n)
     local a={}
     for i=1,_n do
-        a[i]=rnd()
+        a[i]=rnd(2)-1
     end
     return a
 end
