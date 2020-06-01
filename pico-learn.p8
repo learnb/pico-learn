@@ -6,13 +6,18 @@ __lua__
 function _init()
     draw=true
     rectfill(0,0,127,127,0)
-    --
-    --net = init_graph()
-    
-    --net = fcnn:new({3,5,5,3})
-    --draw_nn(net)
-   
+    my_init_nn()
 
+end
+function _update60()
+    my_update_nn()
+end
+function _draw()
+    my_draw_nn()
+end
+-->8
+-- demo
+function my_init_nn()
     num_inputs=4
     num_outputs=6
     net=nn:new()
@@ -37,23 +42,45 @@ function _init()
     output=net:feedforward(np_rand_vec(num_inputs))
 
     -- configure training
-    learing_rate=0.3
-    epochs = 10000
-    num_samples = 100
+    learing_rate=0.5
+    --learing_rate=0.003
+    epochs=10000
+    num_samples=10000
+    num_test_samples=100
 
     -- generate random test data
     x = {}
     y = {}
-    for s=1,num_samples do -- each input sample
+    x_test = {}
+    y_test = {}
+    for s=1,num_samples do -- each train sample
         x[s]={}
         for i=1,num_inputs do -- each input
-            x[s][i]=rnd()
+            x[s][i]=rnd(2)-1
         end
         y[s]={}
         for l=1,num_outputs do -- each label
-            y[s][l]=rnd()
+            y[s][l]=1.0
+            --y[s][l]=rnd(2)-1
         end
     end
+
+    for s=1,num_test_samples do -- each test sample
+        x_test[s]={}
+        for i=1,num_inputs do -- each input
+            x_test[s][i]=rnd(2)-1
+        end
+        y_test[s]={}
+        for l=1,num_outputs do -- each label
+            y_test[s][l]=1.0
+            --y_test[s][l]=rnd(2)-1
+        end
+    end
+
+
+
+
+
 
     -- define dataset for logical 'and'
     --x={{0,0},{0,1},{1,0},{1,1}}
@@ -80,11 +107,11 @@ function _init()
     -- train
     --net:train(x,y,learing_rate,epochs)
 end
-function _update()
+function my_update_nn()
     --output=net:feedforward(np_rand_vec(num_inputs))
 
     -- train
-    if ((net.epoch>prev_epoch) and (net.epoch<epochs)) then -- ready for next epoch
+    if (net.epoch<epochs) then -- ready for next epoch
         prev_epoch=net.epoch
         net:train_step(x[prev_sample],y[prev_sample],learing_rate)
         add(errors, net:mse(y[1],x[1]))
@@ -93,25 +120,25 @@ function _update()
         else -- batch complete
             prev_sample=1
             net:accuracy(x, y)
+            net.epoch+=1
         end
     elseif (net.epoch>=epochs and not(done_training)) then -- training over
         done_training=true
-        net:accuracy(x, y)
+        net:accuracy(x_test, y_test)
     end
 end
-function _draw()
+function my_draw_nn()
     if (draw) then
         rectfill(0,0,127,127,0)
         rect(0,0,127,127,6)
-        net:draw()
+        net:draw_net()
+        net:draw_stats()
+        net:draw_index()
         --print("output: ", 16,64, 6)
         --for i=1,#output do
         --    print(tostr(output[i]), 32,72+(i*8), 6)
         --end
     end
-    --
-    --draw_nn(net)
-    --draw_graph(net)
 end
 -->8
 -- setup graph
@@ -124,8 +151,6 @@ function init_graph()
     n:connect(n:new(20,40))
     return n
 end
--->8
--- demo
 -->8
 -- graph lib
 graph_lib = {}
@@ -299,11 +324,10 @@ end
 -- lr: learning rate (0,1)
 -- max_epochs: maximum number of training iterations
 function nn:train_step(x,y,lr)
-    self.epoch+=1
     self:backprop(x, y, lr)
 end
 -- draw nn structure
-function nn:draw()
+function nn:draw_net()
     local radius=3
     local pad=16
     for lindx,layer in ipairs(self.layers) do -- each layer
@@ -323,11 +347,17 @@ function nn:draw()
                 line(x,y, x1,y1, h)
             end
         end
+    end
+    for lindx,layer in ipairs(self.layers) do -- each layer
+        local w=layer.weights
+        local ins=#w
+        local outs=#w[1]
         -- draw neurons
-        -- if lindx==1 then -- first layer
-        for r=1,ins do -- draw input neurons
-            circfill(lindx*pad,r*pad, radius, graph_lib.heat_pal[1])
-            circ(lindx*pad,r*pad, radius, 7)
+        if lindx==1 then -- first layer
+            for r=1,ins do -- draw input neurons
+                circfill(lindx*pad,r*pad, radius, graph_lib.heat_pal[1])
+                circ(lindx*pad,r*pad, radius, 7)
+            end
         end
         for c=1,outs do -- draw output neurons
             local v=self.layers[lindx].last_activation[c]
@@ -343,7 +373,18 @@ function nn:draw()
             circ((lindx+1)*pad,c*pad, radius, 7)
         end
     end
-    -- draw heat index
+
+
+end
+-- draw training stats
+function nn:draw_stats()
+    print("epoch: "..self.epoch, 15,108, 6)
+    print("error: "..self.error, 15,114, 13)
+    print("accuracy: "..(self.acc*100).."%", 3,120, 15)
+
+end
+-- draw heatmap index
+function nn:draw_index()
     local hi_x=116
     local hi_y=84
     local hi_w=8
@@ -354,10 +395,6 @@ function nn:draw()
     end
     print("max", 100,85, graph_lib.heat_pal[5])
     print("min", 100,117, graph_lib.heat_pal[1])
-    -- draw train stats
-    print("epoch: "..self.epoch, 15,108, 6)
-    print("error: "..self.error, 15,114, 13)
-    print("accuracy: "..(self.acc*100).."%", 3,120, 15)
 end
 layer={}
 -- constructor for nn layer
