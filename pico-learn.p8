@@ -11,17 +11,24 @@ function _init()
     
     --net = fcnn:new({3,5,5,3})
     --draw_nn(net)
+   
+
+    num_inputs=4
+    num_outputs=6
+    net=nn:new()
+    net:add_layer(layer:new(num_inputs,3,"tanh"))
+    net:add_layer(layer:new(3,2,"sigmoid"))
+    net:add_layer(layer:new(2,3,"sigmoid"))
+    net:add_layer(layer:new(3,num_outputs,"sigmoid"))
+
+    --num_inputs=2
+    --num_outputs=2
+    --net:add_layer(layer:new(num_inputs,3,"tanh"))
+    --net:add_layer(layer:new(3,3,"sigmoid"))
+    --net:add_layer(layer:new(3,num_outputs,"sigmoid"))
     
     --num_inputs=4
     --num_outputs=6
-    num_inputs=2
-    num_outputs=2
-
-    net=nn:new()
-    net:add_layer(layer:new(num_inputs,3,"tanh"))
-    net:add_layer(layer:new(3,3,"sigmoid"))
-    net:add_layer(layer:new(3,num_outputs,"sigmoid"))
-
     --net:add_layer(layer:new(num_inputs,3,"tanh"))
     --net:add_layer(layer:new(3,3,"sigmoid"))
     --net:add_layer(layer:new(3,num_outputs,"sigmoid"))
@@ -35,32 +42,32 @@ function _init()
     num_samples = 100
 
     -- generate random test data
-    --x = {}
-    --y = {}
-    --for s=1,num_samples do -- each input sample
-    --    x[s]={}
-    --    for i=1,num_inputs do -- each input
-    --        x[s][i]=rnd()
-    --    end
-    --    y[s]={}
-    --    for l=1,num_outputs do -- each label
-    --        y[s][l]=rnd()
-    --    end
-    --end
+    x = {}
+    y = {}
+    for s=1,num_samples do -- each input sample
+        x[s]={}
+        for i=1,num_inputs do -- each input
+            x[s][i]=rnd()
+        end
+        y[s]={}
+        for l=1,num_outputs do -- each label
+            y[s][l]=rnd()
+        end
+    end
 
     -- define dataset for logical 'and'
     --x={{0,0},{0,1},{1,0},{1,1}}
     --y={{1,0},{1,0},{1,0},{0,1}}
 
 
-    -- define simple dataset
+    -- define simple dataset (in:2, out:2)
     --x={{0,0},{0,1},{1,0},{1,1}}
     --y={{0,0},{0,1},{1,0},{1,1}}
 
 
-    -- define simple dataset
-    x={{0,0},{0,1},{1,0},{1,1}}
-    y={{1,1},{1,0},{0,1},{0,0}}
+    -- define simple dataset (in:4 out: 6)
+    -- x={{0,0,0,0},{0,0,0,1},{0,0,1,0},{0,0,1,1}}
+    -- y={{0,0,0,0,0,0},{0,0,0,0,0,1},{0,0,0,0,1,0},{0,0,0,0,1,1}}
 
 
     num_samples=4
@@ -95,6 +102,7 @@ end
 function _draw()
     if (draw) then
         rectfill(0,0,127,127,0)
+        rect(0,0,127,127,6)
         net:draw()
         --print("output: ", 16,64, 6)
         --for i=1,#output do
@@ -121,7 +129,10 @@ end
 -->8
 -- graph lib
 graph_lib = {}
-graph_lib.heat_pal={1,2,8,14,7} -- heat index palette
+--graph_lib.heat_pal={1,2,8,14,7} -- heat index palette
+--graph_lib.heat_pal={2,4,9,11,12} -- heat index palette
+--graph_lib.heat_pal={12,11,10,9,8} -- heat index palette
+graph_lib.heat_pal={4,9,7,12,11} -- "brbg" heat index palette
 node={}
 -- node constructor
 function node:new(_x, _y)
@@ -293,7 +304,7 @@ function nn:train_step(x,y,lr)
 end
 -- draw nn structure
 function nn:draw()
-    local radius=2
+    local radius=3
     local pad=16
     for lindx,layer in ipairs(self.layers) do -- each layer
         local w=layer.weights
@@ -305,7 +316,8 @@ function nn:draw()
             local y=r*pad
             for c=1,outs do
                 x=lindx*pad
-                local h=graph_lib.heat_pal[mid(1,flr(5*w[r][c]),5)]
+                local v=(w[r][c]+5)/2 -- map value (-5,5) to (1,5)
+                local h=graph_lib.heat_pal[mid(1,flr(v),5)]
                 local x1=x+pad
                 local y1=c*pad
                 line(x,y, x1,y1, h)
@@ -315,19 +327,37 @@ function nn:draw()
         -- if lindx==1 then -- first layer
         for r=1,ins do -- draw input neurons
             circfill(lindx*pad,r*pad, radius, graph_lib.heat_pal[1])
-            circ(lindx*pad,r*pad, radius, graph_lib.heat_pal[5])
+            circ(lindx*pad,r*pad, radius, 7)
         end
-        -- draw output neurons
-        for c=1,outs do -- draw input neurons
-            local h=graph_lib.heat_pal[mid(1,self.layers[lindx].last_activation[c],5)]
+        for c=1,outs do -- draw output neurons
+            local v=self.layers[lindx].last_activation[c]
+            if (self.layers[lindx].activation=="tanh") then
+                -- map value (-1,1) to (1,5)
+                v=(v+1)*(5/2)
+            else -- sigmoid
+                -- map value (0,1) to (1,5)
+                v=v*5
+            end
+            local h=graph_lib.heat_pal[mid(1,flr(v),5)]
             circfill((lindx+1)*pad,c*pad, radius, h)
-            circ((lindx+1)*pad,c*pad, radius, graph_lib.heat_pal[5])
+            circ((lindx+1)*pad,c*pad, radius, 7)
         end
     end
-    --print("epoch: "..self.epoch, 3,3, 8)
-    print("epoch: "..self.epoch, 15,110, 6)
-    print("error: "..self.error, 15,116, 13)
-    print("accuracy: "..(self.acc*100).."%", 3,122, 15)
+    -- draw heat index
+    local hi_x=116
+    local hi_y=84
+    local hi_w=8
+    local hi=5
+    for i=1,#graph_lib.heat_pal do
+        rectfill(hi_x,hi_y+((i-1)*hi_w), hi_x+hi_w,hi_y+((i-1)*hi_w)+hi_w, graph_lib.heat_pal[hi])
+        hi-=1
+    end
+    print("max", 100,85, graph_lib.heat_pal[5])
+    print("min", 100,117, graph_lib.heat_pal[1])
+    -- draw train stats
+    print("epoch: "..self.epoch, 15,108, 6)
+    print("error: "..self.error, 15,114, 13)
+    print("accuracy: "..(self.acc*100).."%", 3,120, 15)
 end
 layer={}
 -- constructor for nn layer
@@ -388,22 +418,22 @@ function layer:update(_input,_output,_lr)
 end
 -->8
 -- num-pico lib
--- returns a n-by-m array with random values (-1,1)
+-- returns a n-by-m array with random values (-5,5)
 function np_rand_mat(_n,_m)
     local a={}
     for i=1,_n do -- each row
         a[i]={}
         for j=1,_m do -- each col
-            a[i][j]=rnd(2)-1
+            a[i][j]=rnd(10)-5
         end
     end
     return a
 end
--- returns a n-dim array with random values (-1,1)
+-- returns a n-dim array with random values (-5,5)
 function np_rand_vec(_n)
     local a={}
     for i=1,_n do
-        a[i]=rnd(2)-1
+        a[i]=rnd(10)-5
     end
     return a
 end
@@ -580,9 +610,9 @@ function np_exp(x)
 end
 
 __gfx__
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00700700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000700303080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000e0010c090000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700800c070a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000200509030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000100404010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00700700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
