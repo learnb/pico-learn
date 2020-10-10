@@ -1,6 +1,6 @@
 -- num-pico lib
 -- returns a n-by-m array with random values (-5,5)
-function np_rand_mat(_n,_m)
+function np_mat_rand(_n,_m)
     local a={}
     for i=1,_n do -- each row
         a[i]={}
@@ -11,7 +11,7 @@ function np_rand_mat(_n,_m)
     return a
 end
 -- returns a n-dim array with random values (-5,5)
-function np_rand_vec(_n)
+function np_vec_rand(_n)
     local a={}
     for i=1,_n do
         a[i]=rnd(10)-5
@@ -46,7 +46,7 @@ end
 -- a is array of legnth n (1-by-n transposed)
 -- b is n-by-p matrix
 -- returns array of length p (1-by-p transposed)
-function np_dot_vm(_a,_b)
+function np_vm_dot(_a,_b)
     local n=#_a
     local p=#_b[1]
     local c={}
@@ -63,7 +63,7 @@ end
 -- a is n-by-p matrix
 -- b is array of legnth p (1-by-p transposed)
 -- returns array of length n (1-by-n transposed)
-function np_dot_mv(_a,_b)
+function np_mv_dot(_a,_b)
     local n=#_a
     local p=#_a[1]
     local c={}
@@ -80,7 +80,7 @@ end
 -- a is 1-d array of length n
 -- b is 1-d array of length n
 -- returns n-d array
-function np_add_vec(_a,_b)
+function np_vec_add(_a,_b)
     local c={}
     for i=1,#_a do
         c[i]=_a[i]+_b[i]
@@ -91,7 +91,7 @@ end
 -- a is 1-d array of length n
 -- b is 1-d array of length n
 -- returns n-d array
-function np_sub_vec(_a,_b)
+function np_vec_sub(_a,_b)
     local c={}
     for i=1,#_a do
         c[i]=_a[i]-_b[i]
@@ -102,7 +102,7 @@ end
 -- a is 1-d array of length n
 -- b is 1-d array of length n
 -- returns n-d array
-function np_mult_vec(_a,_b)
+function np_vec_mult(_a,_b)
     local c={}
     for i=1,#_a do
         c[i]=_a[i]*_b[i]
@@ -127,14 +127,14 @@ function np_add(_a,_b)
     return c
 end
 -- component-wise x^2
-function np_square_vec(_v)
+function np_vec_sq(_v)
     for comp in all(_v) do
         comp = comp*comp
     end
     return _v
 end
 -- returns: arithmetic mean of vector
-function np_mean_vec(_v)
+function np_vec_mean(_v)
     local sum=0
     for i=1,#_v do
         sum+=_v[i]

@@ -44,12 +44,12 @@ function nn:backprop(x,y,lr)
     for l=#self.layers,1,-1 do -- loop over layers backwards
         local layer=self.layers[l]
         if l==#self.layers then -- if this is output layer
-            layer.error=np_sub_vec(y,output)
-            layer.delta=np_mult_vec(layer.error,layer:apply_activation_derivative(output))
+            layer.error=np_vec_sub(y,output)
+            layer.delta=np_vec_mult(layer.error,layer:apply_activation_derivative(output))
         else
             local next_layer=self.layers[l+1]
-            layer.error=np_dot_mv(next_layer.weights, next_layer.delta)
-            layer.delta=np_mult_vec(layer.error,layer:apply_activation_derivative(layer.last_activation))
+            layer.error=np_mv_dot(next_layer.weights, next_layer.delta)
+            layer.delta=np_vec_mult(layer.error,layer:apply_activation_derivative(layer.last_activation))
         end
     end
 
@@ -78,7 +78,7 @@ end
 -- y: input vector, 1-d array
 -- returns: mse, scalar
 function nn:mse(y,x)
-    local e=np_mean_vec(np_square_vec(np_sub_vec(y, self:feedforward(x))))
+    local e=np_vec_mean(np_vec_sq(np_vec_sub(y, self:feedforward(x))))
     self.error=e
     return e
 end
@@ -188,10 +188,10 @@ function layer:new(n_input, n_neurons, activation, weights, bias)
         this.activation="tanh"
     end
     if weights != nil then this.weights=weights else
-        this.weights=np_rand_mat(n_input,n_neurons)
+        this.weights=np_mat_rand(n_input,n_neurons)
     end
     if bias != nil then this.bias=bias else 
-        this.bias=np_rand_vec(n_neurons)
+        this.bias=np_vec_rand(n_neurons)
     end
 
 
@@ -204,9 +204,9 @@ end
 -- returns vector: XW+B
 function layer:activate(x)
     --print("x: "..#x)
-    local res=np_dot_vm(x, self.weights) -- X dot W
+    local res=np_vm_dot(x, self.weights) -- X dot W
     --print("xw: "..#res)
-    res=np_add_vec(res, self.bias) -- add bias
+    res=np_vec_add(res, self.bias) -- add bias
     --print("xw+b: "..#res)
     self.last_activation=self:apply_activation(res) -- apply activiation fn
     --print("fn(xw+b): "..#self.last_activation)
