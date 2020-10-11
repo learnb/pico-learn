@@ -46,11 +46,9 @@ function my_init_nn()
     output=net:feedforward(np_vec_rand(num_inputs))
 
     -- configure training
-    learning_rate=0.1
-    --learning_rate=0.003
-    epochs=500
-    num_samples=4
-    num_test_samples=4
+    learning_rate=0.03
+    --learning_rate=0.05
+    epochs=1000
 
     -- generate train/test data
     x = {}
@@ -58,76 +56,55 @@ function my_init_nn()
 
     -- x[sample_indx][node_indx]
 
-    x[1] = {}
-    x[1][1] = 0
-    x[1][2] = 0
-    x[2] = {}
-    x[2][1] = 0
-    x[2][2] = 1
-    x[3] = {}
-    x[3][1] = 1
-    x[3][2] = 0
-    x[4] = {}
-    x[4][1] = 1
-    x[4][2] = 1
+    x_test = {
+        {0,0},
+        {0,1},
+        {1,0},
+        {1,1}
+    }
 
-    y[1] = {}
-    y[1][1] = 1
-    y[1][2] = -1
-    y[2] = {}
-    y[2][1] = -1
-    y[2][2] = 1
-    y[3] = {}
-    y[3][1] = -1
-    y[3][2] = 1
-    y[4] = {}
-    y[4][1] = 1
-    y[4][2] = -1
- 
-    x_test = {}
-    x_test[1] = {}
-    x_test[1][1] = 0
-    x_test[1][2] = 0
-    x_test[2] = {}
-    x_test[2][1] = 0
-    x_test[2][2] = 0
-    x_test[3] = {}
-    x_test[3][1] = 0
-    x_test[3][2] = 1
-    x_test[4] = {}
-    x_test[4][1] = 0
-    x_test[4][2] = 1
-    x_test[5] = {}
-    x_test[5][1] = 1
-    x_test[5][2] = 0
-    x_test[6] = {}
-    x_test[6][1] = 1
-    x_test[6][2] = 1
-    y_test = {}
-    y_test[1] = {}
-    y_test[1][1] = 1
-    y_test[1][2] = -1
-    y_test[2] = {}
-    y_test[2][1] = 1
-    y_test[2][2] = -1
-    y_test[3] = {}
-    y_test[3][1] = -1
-    y_test[3][2] = 1
-    y_test[4] = {}
-    y_test[4][1] = -1
-    y_test[4][2] = 1
-    y_test[5] = {}
-    y_test[5][1] = -1
-    y_test[5][2] = 1
-    y_test[6] = {}
-    y_test[6][1] = 1
-    y_test[6][2] = -1
-    
+    y_test = {
+        {1,-1},
+        {-1,1},
+        {-1,1},
+        {1,-1}
+    }
 
+    x = {
+        {0,0},
+        {0,1},
+        {1,0},
+        {1,1},
+        {0,0},
+        {0,1},
+        {1,0},
+        {1,1},
+        {0,0},
+        {0,1},
+        {1,0},
+        {1,1}
+    }
+
+    y = {
+        {1,-1},
+        {-1,1},
+        {-1,1},
+        {1,-1},
+        {1,-1},
+        {-1,1},
+        {-1,1},
+        {1,-1},
+        {1,-1},
+        {-1,1},
+        {-1,1},
+        {1,-1},
+    }
+
+    num_samples=#y
     prev_sample=1
     prev_epoch=-1
 
-    errors={}
+    --errors={}
     done_training=false
     -- train
     --net:train_step(x[1],y[1],learning_rate)
@@ -141,11 +118,12 @@ function my_train_cor()
         if (net.epoch<epochs) then -- ready for next epoch
             prev_epoch=net.epoch
             net:train_step(x[prev_sample],y[prev_sample],learning_rate)
-            add(errors, net:mse(y[1],x[1]))
+            --add(errors, net:mse(y_test[prev_sample],x_test[prev_sample]))
             if (prev_sample<num_samples) then -- continue batch
                 prev_sample+=1
             else -- batch complete
                 prev_sample=1
+                net:mse(y[1],x[1])
                 net:accuracy(x_test, y_test)
                 net.epoch+=1
             end
