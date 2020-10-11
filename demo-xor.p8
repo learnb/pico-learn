@@ -1,117 +1,128 @@
 pico-8 cartridge // http://www.pico-8.com
 version 27
 __lua__
--- pico learn
+-- pico learn demo - xor
 -- by blearn
 function _init()
     draw=false
     job=nil
-    rectfill(0,0,127,127,0)
+    --rectfill(0,0,127,127,0)
     my_init_nn()
     job=cocreate(my_train_cor)
-
-    if my_dat == nil then
-        my_dat=0
-    end
-    test()
 end
 function _update60()
-    if job and costatus(job) != 'dead' then
-        coresume(job)
-    else
-        job=nil
+    if job != nil then
+        local status = costatus(job)
+        --printh("status: "..status)
+        if job and status != 'dead' then
+            coresume(job)
+        elseif status == 'dead' then
+            printh("job status: "..status)
+            printh(trace(job))
+            job=nil
+
+            printh("(0,0): "..net:predict({0,0}).." truth: "..np_argmax(y[1]))
+            printh("(0,1): "..net:predict({0,1}).." truth: "..np_argmax(y[2]))
+            printh("(1,0): "..net:predict({1,0}).." truth: "..np_argmax(y[3]))
+            printh("(1,1): "..net:predict({1,1}).." truth: "..np_argmax(y[4]))
+        end
     end
 end
 function _draw()
-    --my_draw_nn()
-    print(my_dat,2,2,7)
+    rectfill(0,0,127,127,0)
+    net:draw_stats()
 end
 -->8
 -- demo
-function test()
-    printh("my_dat="..tostr(my_dat+1), "dat", true)
-end
 function my_init_nn()
-    num_inputs=4
-    num_outputs=6
+    num_inputs=2
+    num_outputs=2
+    hidden_nodes=3
     net=nn:new()
-    net:add_layer(layer:new(num_inputs,3,"tanh"))
-    net:add_layer(layer:new(3,2,"sigmoid"))
-    net:add_layer(layer:new(2,3,"sigmoid"))
-    net:add_layer(layer:new(3,num_outputs,"sigmoid"))
-
-    --num_inputs=2
-    --num_outputs=2
-    --net:add_layer(layer:new(num_inputs,3,"tanh"))
-    --net:add_layer(layer:new(3,3,"sigmoid"))
-    --net:add_layer(layer:new(3,num_outputs,"sigmoid"))
-    
-    --num_inputs=4
-    --num_outputs=6
-    --net:add_layer(layer:new(num_inputs,3,"tanh"))
-    --net:add_layer(layer:new(3,3,"sigmoid"))
-    --net:add_layer(layer:new(3,num_outputs,"sigmoid"))
+    net:add_layer(layer:new(num_inputs,hidden_nodes,"tanh"))
+    net:add_layer(layer:new(hidden_nodes,num_outputs,"sigmoid"))
 
     output={}
     output=net:feedforward(np_vec_rand(num_inputs))
 
     -- configure training
-    learning_rate=0.03
+    learning_rate=0.1
     --learning_rate=0.003
-    epochs=10000
-    num_samples=10
-    num_test_samples=100
+    epochs=500
+    num_samples=4
+    num_test_samples=4
 
-    -- generate random test data
+    -- generate train/test data
     x = {}
     y = {}
+
+    -- x[sample_indx][node_indx]
+
+    x[1] = {}
+    x[1][1] = 0
+    x[1][2] = 0
+    x[2] = {}
+    x[2][1] = 0
+    x[2][2] = 1
+    x[3] = {}
+    x[3][1] = 1
+    x[3][2] = 0
+    x[4] = {}
+    x[4][1] = 1
+    x[4][2] = 1
+
+    y[1] = {}
+    y[1][1] = 1
+    y[1][2] = -1
+    y[2] = {}
+    y[2][1] = -1
+    y[2][2] = 1
+    y[3] = {}
+    y[3][1] = -1
+    y[3][2] = 1
+    y[4] = {}
+    y[4][1] = 1
+    y[4][2] = -1
+ 
     x_test = {}
+    x_test[1] = {}
+    x_test[1][1] = 0
+    x_test[1][2] = 0
+    x_test[2] = {}
+    x_test[2][1] = 0
+    x_test[2][2] = 0
+    x_test[3] = {}
+    x_test[3][1] = 0
+    x_test[3][2] = 1
+    x_test[4] = {}
+    x_test[4][1] = 0
+    x_test[4][2] = 1
+    x_test[5] = {}
+    x_test[5][1] = 1
+    x_test[5][2] = 0
+    x_test[6] = {}
+    x_test[6][1] = 1
+    x_test[6][2] = 1
     y_test = {}
-    for s=1,num_samples do -- each train sample
-        x[s]={}
-        for i=1,num_inputs do -- each input
-            x[s][i]=rnd(2)-1
-        end
-        y[s]={}
-        for l=1,num_outputs do -- each label
-            y[s][l]=1.0
-            --y[s][l]=rnd(2)-1
-        end
-    end
-
-    for s=1,num_test_samples do -- each test sample
-        x_test[s]={}
-        for i=1,num_inputs do -- each input
-            x_test[s][i]=rnd(2)-1
-        end
-        y_test[s]={}
-        for l=1,num_outputs do -- each label
-            y_test[s][l]=1.0
-            --y_test[s][l]=rnd(2)-1
-        end
-    end
-
-
-
-
-
-
-    -- define dataset for logical 'and'
-    --x={{0,0},{0,1},{1,0},{1,1}}
-    --y={{1,0},{1,0},{1,0},{0,1}}
-
-
-    -- define simple dataset (in:2, out:2)
-    --x={{0,0},{0,1},{1,0},{1,1}}
-    --y={{0,0},{0,1},{1,0},{1,1}}
-
-
-    -- define simple dataset (in:4 out: 6)
-    -- x={{0,0,0,0},{0,0,0,1},{0,0,1,0},{0,0,1,1}}
-    -- y={{0,0,0,0,0,0},{0,0,0,0,0,1},{0,0,0,0,1,0},{0,0,0,0,1,1}}
-
-
-    num_samples=4
+    y_test[1] = {}
+    y_test[1][1] = 1
+    y_test[1][2] = -1
+    y_test[2] = {}
+    y_test[2][1] = 1
+    y_test[2][2] = -1
+    y_test[3] = {}
+    y_test[3][1] = -1
+    y_test[3][2] = 1
+    y_test[4] = {}
+    y_test[4][1] = -1
+    y_test[4][2] = 1
+    y_test[5] = {}
+    y_test[5][1] = -1
+    y_test[5][2] = 1
+    y_test[6] = {}
+    y_test[6][1] = 1
+    y_test[6][2] = -1
+    
 
     prev_sample=1
     prev_epoch=-1
@@ -119,7 +130,9 @@ function my_init_nn()
     errors={}
     done_training=false
     -- train
+    --net:train_step(x[1],y[1],learning_rate)
     --net:train(x,y,learning_rate,epochs)
+    --net:accuracy(x_test, y_test)
 end
 -- coroutine for training nn
 function my_train_cor()
@@ -133,7 +146,7 @@ function my_train_cor()
                 prev_sample+=1
             else -- batch complete
                 prev_sample=1
-                net:accuracy(x, y)
+                net:accuracy(x_test, y_test)
                 net.epoch+=1
             end
         elseif (net.epoch>=epochs and not(done_training)) then -- training over
@@ -163,30 +176,9 @@ function my_update_nn()
         net:accuracy(x_test, y_test)
     end
 end
-function my_draw_nn()
-    if (draw) then
-        rectfill(0,0,127,127,0)
-        rect(0,0,127,127,6)
-        net:draw_net()
-        net:draw_stats()
-        net:draw_index()
-        --print("output: ", 16,64, 6)
-        --for i=1,#output do
-        --    print(tostr(output[i]), 32,72+(i*8), 6)
-        --end
-    end
-end
+
 -->8
--- setup graph
-function init_graph()
-    --
-    local n=node:new()
-    n:setpos(10,10)
-    n:connect(n:new(20,10))
-    n:connect(n:new(20,30))
-    n:connect(n:new(20,40))
-    return n
-end
+
 -->8
 -- graph lib
 --#include graph-lib.lua

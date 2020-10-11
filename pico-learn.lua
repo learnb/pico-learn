@@ -66,12 +66,12 @@ function nn:backprop(x,y,lr)
     end
 end
 -- accuracy between predicted and true labels
-function nn:accuracy(y_pred,y_true)
+function nn:accuracy(x,y_true)
     local mean=0
-    for i=1,#y_pred do -- each sample
-        if (nn:predict(y_pred[i])==np_argmax(y_true[i])) then mean+=1 end
+    for i=1,#x do -- each sample
+        if (self:predict(x[i])==np_argmax(y_true[i])) then mean+=1 end
     end
-    self.acc=mean/#y_pred
+    self.acc=mean/#x
     return self.acc
 end
 -- mean square error
@@ -97,7 +97,7 @@ function nn:train(x,y,lr,max_epochs)
         end
         -- check progress
         if i%10==0 then
-            add(results, nn:mse(y[1],x[1]))
+            add(results, self:mse(y[1],x[1]))
         end
     end
     return results
@@ -110,75 +110,13 @@ end
 function nn:train_step(x,y,lr)
     self:backprop(x, y, lr)
 end
--- draw nn structure
-function nn:draw_net()
-    local radius=3
-    local pad=16
-    for lindx,layer in ipairs(self.layers) do -- each layer
-        local w=layer.weights
-        local ins=#w
-        local outs=#w[1]
-        -- draw weights
-        for r=1,ins do
-            local x=pad
-            local y=r*pad
-            for c=1,outs do
-                x=lindx*pad
-                local v=(w[r][c]+5)/2 -- map value (-5,5) to (1,5)
-                local h=graph_lib.heat_pal[mid(1,flr(v),5)]
-                local x1=x+pad
-                local y1=c*pad
-                line(x,y, x1,y1, h)
-            end
-        end
-    end
-    for lindx,layer in ipairs(self.layers) do -- each layer
-        local w=layer.weights
-        local ins=#w
-        local outs=#w[1]
-        -- draw neurons
-        if lindx==1 then -- first layer
-            for r=1,ins do -- draw input neurons
-                circfill(lindx*pad,r*pad, radius, graph_lib.heat_pal[1])
-                circ(lindx*pad,r*pad, radius, 7)
-            end
-        end
-        for c=1,outs do -- draw output neurons
-            local v=self.layers[lindx].last_activation[c]
-            if (self.layers[lindx].activation=="tanh") then
-                -- map value (-1,1) to (1,5)
-                v=(v+1)*(5/2)
-            else -- sigmoid
-                -- map value (0,1) to (1,5)
-                v=v*5
-            end
-            local h=graph_lib.heat_pal[mid(1,flr(v),5)]
-            circfill((lindx+1)*pad,c*pad, radius, h)
-            circ((lindx+1)*pad,c*pad, radius, 7)
-        end
-    end
 
-
-end
 -- draw training stats
 function nn:draw_stats()
     print("epoch: "..self.epoch, 15,108, 6)
     print("error: "..self.error, 15,114, 13)
     print("accuracy: "..(self.acc*100).."%", 3,120, 15)
 
-end
--- draw heatmap index
-function nn:draw_index()
-    local hi_x=116
-    local hi_y=84
-    local hi_w=8
-    local hi=5
-    for i=1,#graph_lib.heat_pal do
-        rectfill(hi_x,hi_y+((i-1)*hi_w), hi_x+hi_w,hi_y+((i-1)*hi_w)+hi_w, graph_lib.heat_pal[hi])
-        hi-=1
-    end
-    print("max", 100,85, graph_lib.heat_pal[5])
-    print("min", 100,117, graph_lib.heat_pal[1])
 end
 layer={}
 -- constructor for nn layer
